@@ -1,0 +1,19 @@
+{
+  "name": "flatpak-update-list",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "flatpak-update-list": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cac": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}
