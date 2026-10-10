@@ -39,6 +39,7 @@ async function main() {
   };
 
   try {
+    console.log("Fetching updates...")
     const comparisons = await getUpdateComparisons(options);
 
     if (options.json) {
