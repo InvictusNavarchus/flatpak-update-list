@@ -5,10 +5,11 @@ A lightweight, zero-bloat CLI utility written in TypeScript and executed via [Bu
 ## Features
 
 - **Side-by-Side Version Comparison**: Displays `CURRENT → AVAILABLE` versions in a clean, terminal-aligned table.
-- **Rebuild & Patch Detection**: Automatically distinguishes between upstream version bumps and flatpak rebuilds/manifest updates (e.g. `1.13.7 (rebuild: 092bb11 -> baf531d)`).
-- **Fast Execution**: Concurrently fetches installed applications and remote updates directly via native JSON flags (`-j`), avoiding brittle text parsing.
+- **Fresh Version Metadata**: Refreshes AppStream for the selected user/system installations before querying online updates. This updates catalog metadata only; it does not install application or runtime updates. Refresh failures stop the check instead of silently using stale versions.
+- **Cautious Rebuild Detection**: Different reported versions indicate a version change. Equal versions with different commits are labeled **possible rebuilds**, since catalog metadata cannot prove that the application version stayed unchanged.
+- **Native JSON Queries**: Fetches installed applications concurrently with the remote update check via native JSON flags (`-j`), avoiding brittle text parsing.
 - **Filtering Options**: Easily filter by `--user` or `--system` installations, or check `--all` (including runtimes).
-- **Offline / Stale Cache Mode**: `--cached` flag queries local OSTree caches instantly without hitting remotes.
+- **Offline / Stale Cache Mode**: `--cached` skips AppStream refresh and queries local OSTree caches without hitting remotes. Available versions are marked `(cached)`; equal cached versions are unverified, not classified as rebuilds.
 - **Machine-Readable**: `--json` flag prints structured JSON for scripting or piping to tools like `jq`.
 
 ## Installation & Requirements
@@ -60,4 +61,17 @@ bun start --user
 
 # Include runtimes and output to JSON
 bun start --all --json
+```
+
+### Version information
+
+Flatpak tracks updates by commit, while displayed versions come from AppStream catalogs. Previously, this utility could show a current remote commit alongside an old catalog version and incorrectly label a new release as a rebuild. Online checks now refresh catalogs first. The `--user` and `--system` filters also limit the refresh; by default both installations are refreshed.
+
+JSON comparisons include `versionMetadataCached` to identify potentially stale version metadata. `isRebuild` is a heuristic for a possible rebuild with equal known versions after refresh; it is always false in cached mode. Missing versions or an unmatched installation are unverified rather than assumed to be version upgrades. `isVersionBump` means the two reported version strings differ, not that their ordering has been verified.
+
+## Validation
+
+```bash
+bun test
+bun run typecheck
 ```

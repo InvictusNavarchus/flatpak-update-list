@@ -1,6 +1,6 @@
 import type { CliOptions, FlatpakInstalledItem, FlatpakRemoteItem, UpdateComparison } from "./types.ts";
 
-async function runFlatpakJson<T>(args: string[]): Promise<T[]> {
+async function runFlatpak(args: string[]): Promise<string> {
   const proc = Bun.spawn(["flatpak", ...args], {
     stdout: "pipe",
     stderr: "pipe",
@@ -17,7 +17,11 @@ async function runFlatpakJson<T>(args: string[]): Promise<T[]> {
     throw new Error(`Flatpak command failed ("flatpak ${args.join(" ")}"): ${errorMsg}`);
   }
 
-  const trimmed = stdout.trim();
+  return stdout;
+}
+
+async function runFlatpakJson<T>(args: string[]): Promise<T[]> {
+  const trimmed = (await runFlatpak(args)).trim();
   if (!trimmed) {
     return [];
   }
@@ -46,6 +50,17 @@ export async function fetchInstalledApps(options: CliOptions): Promise<FlatpakIn
 }
 
 export async function fetchAvailableUpdates(options: CliOptions): Promise<FlatpakRemoteItem[]> {
+  if (!options.cached) {
+    // remote-ls can refresh commits while still reading stale AppStream versions.
+    // Refresh each selected installation before reading its version metadata.
+    const scopes = options.user || options.system
+      ? [options.user && "--user", options.system && "--system"].filter((scope): scope is string => Boolean(scope))
+      : ["--user", "--system"];
+    for (const scope of scopes) {
+      await runFlatpak(["update", "--appstream", scope]);
+    }
+  }
+
   const args = ["remote-ls", "--updates"];
   if (!options.all) {
     args.push("--app");
@@ -93,7 +108,9 @@ export async function getUpdateComparisons(options: CliOptions): Promise<UpdateC
         const availableCommit = update.commit?.trim() || "";
 
         const isVersionBump = currentVersion !== "-" && availableVersion !== "-" && currentVersion !== availableVersion;
-        const isRebuild = !isVersionBump && currentCommit !== availableCommit;
+        // Equal catalog versions only suggest a rebuild; they do not prove one.
+        const isRebuild = !options.cached && currentVersion !== "-" && currentVersion === availableVersion
+          && Boolean(currentCommit) && Boolean(availableCommit) && currentCommit !== availableCommit;
 
         comparisons.push({
           id: update.application_id,
@@ -109,6 +126,7 @@ export async function getUpdateComparisons(options: CliOptions): Promise<UpdateC
           branch: update.branch,
           isRebuild,
           isVersionBump,
+          versionMetadataCached: Boolean(options.cached),
         });
       }
     } else {
@@ -130,7 +148,8 @@ export async function getUpdateComparisons(options: CliOptions): Promise<UpdateC
         arch: update.arch,
         branch: update.branch,
         isRebuild: false,
-        isVersionBump: true,
+        isVersionBump: false,
+        versionMetadataCached: Boolean(options.cached),
       });
     }
   }

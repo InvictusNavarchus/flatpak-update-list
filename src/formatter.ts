@@ -23,12 +23,16 @@ const style = {
 };
 
 function formatAvailableRaw(item: UpdateComparison): string {
+  const version = `${item.availableVersion}${item.versionMetadataCached ? " (cached)" : ""}`;
   if (item.isRebuild) {
     const curShort = item.currentCommit ? item.currentCommit.slice(0, 7) : "?";
     const availShort = item.availableCommit ? item.availableCommit.slice(0, 7) : "?";
-    return `${item.availableVersion} (rebuild: ${curShort} -> ${availShort})`;
+    return `${version} (possible rebuild: ${curShort} -> ${availShort})`;
   }
-  return item.availableVersion;
+  if (!item.isVersionBump) {
+    return `${version} (version unverified)`;
+  }
+  return version;
 }
 
 export function formatComparisonTable(items: UpdateComparison[]): string {
@@ -98,6 +102,7 @@ export function formatComparisonTable(items: UpdateComparison[]): string {
 
   let versionBumpCount = 0;
   let rebuildCount = 0;
+  let unverifiedCount = 0;
 
   for (const item of items) {
     const rawAvail = formatAvailableRaw(item);
@@ -107,9 +112,12 @@ export function formatComparisonTable(items: UpdateComparison[]): string {
     if (item.isRebuild) {
       rebuildCount++;
       styledAvailable = style.yellow(rawAvail.padEnd(maxAvailable));
-    } else {
+    } else if (item.isVersionBump) {
       versionBumpCount++;
       styledAvailable = style.green(rawAvail.padEnd(maxAvailable));
+    } else {
+      unverifiedCount++;
+      styledAvailable = style.yellow(rawAvail.padEnd(maxAvailable));
     }
 
     const row = [
@@ -128,10 +136,13 @@ export function formatComparisonTable(items: UpdateComparison[]): string {
   // Summary statistics
   const summaryParts: string[] = [];
   if (versionBumpCount > 0) {
-    summaryParts.push(`${versionBumpCount} version upgrade${versionBumpCount > 1 ? "s" : ""}`);
+    summaryParts.push(`${versionBumpCount} reported version change${versionBumpCount > 1 ? "s" : ""}`);
   }
   if (rebuildCount > 0) {
-    summaryParts.push(`${rebuildCount} build/rebuild update${rebuildCount > 1 ? "s" : ""}`);
+    summaryParts.push(`${rebuildCount} possible rebuild${rebuildCount > 1 ? "s" : ""}`);
+  }
+  if (unverifiedCount > 0) {
+    summaryParts.push(`${unverifiedCount} update${unverifiedCount > 1 ? "s" : ""} with unverified versions`);
   }
 
   const summary = `Found ${items.length} update${items.length > 1 ? "s" : ""} (${summaryParts.join(", ")}).`;

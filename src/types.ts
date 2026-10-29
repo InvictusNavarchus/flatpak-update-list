@@ -33,8 +33,10 @@ export interface UpdateComparison {
   installation: string;
   arch: string;
   branch: string;
+  /** A possible rebuild inferred from equal refreshed catalog versions, not proof. */
   isRebuild: boolean;
   isVersionBump: boolean;
+  versionMetadataCached: boolean;
 }
 
 export interface CliOptions {
