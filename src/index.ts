@@ -38,9 +38,19 @@ async function main() {
     json: Boolean(parsed.options.json),
   };
 
+  const isStderrColor = Boolean(
+    process.stderr.isTTY &&
+    !process.env.NO_COLOR &&
+    process.env.TERM !== "dumb"
+  );
+
+  const logProgress = (message: string) => {
+    const bullet = isStderrColor ? "\x1b[36m•\x1b[0m" : "•";
+    console.error(`${bullet} ${message}`);
+  };
+
   try {
-    console.log("Fetching updates...")
-    const comparisons = await getUpdateComparisons(options);
+    const comparisons = await getUpdateComparisons(options, logProgress);
 
     if (options.json) {
       console.log(JSON.stringify(comparisons, null, 2));
@@ -49,8 +59,7 @@ async function main() {
 
     console.log(formatComparisonTable(comparisons));
   } catch (error) {
-    const isColor = Boolean(process.stderr.isTTY && !process.env.NO_COLOR);
-    const prefix = isColor ? "\x1b[31merror:\x1b[0m" : "error:";
+    const prefix = isStderrColor ? "\x1b[31merror:\x1b[0m" : "error:";
     console.error(`${prefix} ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }

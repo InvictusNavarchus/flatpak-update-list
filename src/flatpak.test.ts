@@ -145,3 +145,29 @@ test("unmatched installed refs do not imply a version upgrade", async () => {
   expect(results[0]?.isVersionBump).toBe(false);
   expect(formatComparisonTable(results)).toContain("version unverified");
 });
+
+test("reports progress events for AppStream refresh and remote updates", async () => {
+  const events: string[] = [];
+  await getUpdateComparisons({ user: true }, (msg) => events.push(msg));
+  expect(events).toEqual([
+    "Refreshing AppStream metadata (user)...",
+    "Querying remote updates...",
+  ]);
+});
+
+test("reports progress events for multiple refresh scopes", async () => {
+  const events: string[] = [];
+  await getUpdateComparisons({}, (msg) => events.push(msg));
+  expect(events).toEqual([
+    "Refreshing AppStream metadata (user, system)...",
+    "Querying remote updates...",
+  ]);
+});
+
+test("reports progress for cached checks without AppStream refresh", async () => {
+  const events: string[] = [];
+  await getUpdateComparisons({ cached: true }, (msg) => events.push(msg));
+  expect(events).toEqual([
+    "Checking local cache for updates...",
+  ]);
+});

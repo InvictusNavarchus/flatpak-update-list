@@ -49,17 +49,24 @@ export async function fetchInstalledApps(options: CliOptions): Promise<FlatpakIn
   return runFlatpakJson<FlatpakInstalledItem>(args);
 }
 
-export async function fetchAvailableUpdates(options: CliOptions): Promise<FlatpakRemoteItem[]> {
+export async function fetchAvailableUpdates(
+  options: CliOptions,
+  onProgress?: (message: string) => void
+): Promise<FlatpakRemoteItem[]> {
   if (!options.cached) {
     // remote-ls can refresh commits while still reading stale AppStream versions.
     // Refresh each selected installation before reading its version metadata.
     const scopes = options.user || options.system
       ? [options.user && "--user", options.system && "--system"].filter((scope): scope is string => Boolean(scope))
       : ["--user", "--system"];
+    const scopeNames = scopes.map((scope) => scope.replace(/^--/, "")).join(", ");
+    onProgress?.(`Refreshing AppStream metadata (${scopeNames})...`);
     for (const scope of scopes) {
       await runFlatpak(["update", "--appstream", scope]);
     }
   }
+
+  onProgress?.(options.cached ? "Checking local cache for updates..." : "Querying remote updates...");
 
   const args = ["remote-ls", "--updates"];
   if (!options.all) {
@@ -79,10 +86,13 @@ export async function fetchAvailableUpdates(options: CliOptions): Promise<Flatpa
   return runFlatpakJson<FlatpakRemoteItem>(args);
 }
 
-export async function getUpdateComparisons(options: CliOptions): Promise<UpdateComparison[]> {
+export async function getUpdateComparisons(
+  options: CliOptions,
+  onProgress?: (message: string) => void
+): Promise<UpdateComparison[]> {
   const [installed, updates] = await Promise.all([
     fetchInstalledApps(options),
-    fetchAvailableUpdates(options),
+    fetchAvailableUpdates(options, onProgress),
   ]);
 
   // Group installed apps by appId/arch/branch to handle potential user + system installs
