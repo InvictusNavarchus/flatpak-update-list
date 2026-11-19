@@ -17,6 +17,9 @@ cli
 
 cli.help();
 cli.version("0.1.0");
+// Validate the invocation before writing help or version output.
+cli.showHelpOnExit = false;
+cli.showVersionOnExit = false;
 
 cli.example("flatpak-update-list");
 cli.example("flatpak-update-list --cached");
@@ -29,6 +32,13 @@ async function main() {
     parsed = cli.parse(process.argv);
     cli.globalCommand.checkUnknownOptions();
     cli.globalCommand.checkUnusedArgs();
+    // CAC accepts dotted options under a known name, but every flag here is Boolean.
+    for (const [name, value] of Object.entries(parsed.options)) {
+      if (name !== "--" && typeof value !== "boolean") {
+        const flag = name.length === 1 ? `-${name}` : `--${name}`;
+        throw new Error(`Invalid use of ${flag}`);
+      }
+    }
     if (parsed.options["--"].length > 0) {
       throw new Error(`Unexpected arguments after --: ${parsed.options["--"].join(" ")}`);
     }
@@ -39,6 +49,8 @@ async function main() {
   }
 
   if (parsed.options.help || parsed.options.version) {
+    if (parsed.options.help) cli.outputHelp();
+    if (parsed.options.version) cli.outputVersion();
     return;
   }
 

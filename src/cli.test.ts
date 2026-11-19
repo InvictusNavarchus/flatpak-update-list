@@ -9,6 +9,9 @@ function runCli(...args: string[]) {
 
 test.each([
   [["--bogus"], "Unknown option"],
+  [["--help", "--bogus"], "Unknown option"],
+  [["--cached.extra"], "Invalid use of --cached"],
+  [["--version.extra"], "Invalid use of --version"],
   [["--cached", "extra"], "Unused args"],
   [["--cached", "--", "extra"], "Unexpected arguments after --"],
 ])("rejects invalid arguments %j before checking Flatpak", (args, message) => {
