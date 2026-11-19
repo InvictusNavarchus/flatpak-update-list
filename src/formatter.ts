@@ -18,7 +18,6 @@ const style = {
   dim: (t: string) => c("2", t),
   green: (t: string) => c("32", t),
   yellow: (t: string) => c("33", t),
-  cyan: (t: string) => c("36", t),
   gray: (t: string) => c("90", t),
 };
 
@@ -35,108 +34,48 @@ function formatAvailableRaw(item: UpdateComparison): string {
   return version;
 }
 
-export function formatComparisonTable(items: UpdateComparison[], options: CliOptions = {}): string {
+export function formatComparisonTable(
+  items: UpdateComparison[],
+  options: CliOptions = {},
+  columns = process.stdout.columns,
+): string {
+  const wrap = (message: string) => columns
+    ? Bun.wrapAnsi(message, columns, { hard: true, trim: false })
+    : message;
+
   if (items.length === 0) {
     const kind = options.all ? "package" : "application";
     const scope = options.user && !options.system ? "the user installation"
       : options.system && !options.user ? "the default system installation"
       : "the user and default system installations";
     const source = options.cached ? " in the local cache" : "";
-    return style.green(`No pending ${kind} updates found${source} for ${scope}.`);
+    return wrap(style.green(`No pending ${kind} updates found${source} for ${scope}.`));
   }
-
-  // Pre-calculate raw text lengths for perfect column alignment
-  const headers = {
-    name: "APPLICATION",
-    id: "APPLICATION ID",
-    current: "CURRENT",
-    arrow: "",
-    available: "AVAILABLE",
-    size: "SIZE",
-    scope: "REMOTE / SCOPE",
-  };
-
-  let maxName = headers.name.length;
-  let maxId = headers.id.length;
-  let maxCurrent = headers.current.length;
-  let maxAvailable = headers.available.length;
-  let maxSize = headers.size.length;
-  let maxScope = headers.scope.length;
-
-  for (const item of items) {
-    if (item.name.length > maxName) maxName = item.name.length;
-    if (item.id.length > maxId) maxId = item.id.length;
-    if (item.currentVersion.length > maxCurrent) maxCurrent = item.currentVersion.length;
-
-    const availRaw = formatAvailableRaw(item);
-    if (availRaw.length > maxAvailable) maxAvailable = availRaw.length;
-
-    if (item.downloadSize.length > maxSize) maxSize = item.downloadSize.length;
-
-    const scope = `${item.origin} (${item.installation})`;
-    if (scope.length > maxScope) maxScope = scope.length;
-  }
-
-  const lines: string[] = [];
-
-  // Header row
-  const headerLine = [
-    style.bold(headers.name.padEnd(maxName)),
-    style.bold(headers.id.padEnd(maxId)),
-    style.bold(headers.current.padEnd(maxCurrent)),
-    "  ", // arrow space
-    style.bold(headers.available.padEnd(maxAvailable)),
-    style.bold(headers.size.padStart(maxSize)),
-    style.bold(headers.scope.padEnd(maxScope)),
-  ].join("  ");
-
-  lines.push(headerLine);
-  lines.push(
-    style.dim(
-      [
-        "-".repeat(maxName),
-        "-".repeat(maxId),
-        "-".repeat(maxCurrent),
-        "  ",
-        "-".repeat(maxAvailable),
-        "-".repeat(maxSize),
-        "-".repeat(maxScope),
-      ].join("  ")
-    )
-  );
 
   let versionBumpCount = 0;
   let rebuildCount = 0;
   let unverifiedCount = 0;
 
-  for (const item of items) {
-    const rawAvail = formatAvailableRaw(item);
-    const scope = `${item.origin} (${item.installation})`;
-
-    let styledAvailable: string;
+  const rows = items.map((item) => {
+    const available = formatAvailableRaw(item);
     if (item.isRebuild) {
       rebuildCount++;
-      styledAvailable = style.yellow(rawAvail.padEnd(maxAvailable));
     } else if (item.isVersionBump) {
       versionBumpCount++;
-      styledAvailable = style.green(rawAvail.padEnd(maxAvailable));
     } else {
       unverifiedCount++;
-      styledAvailable = style.yellow(rawAvail.padEnd(maxAvailable));
     }
 
-    const row = [
-      item.name.padEnd(maxName),
-      style.gray(item.id.padEnd(maxId)),
-      item.currentVersion.padEnd(maxCurrent),
+    return [
+      item.name,
+      style.gray(item.id),
+      item.currentVersion,
       style.dim("→"),
-      styledAvailable,
-      item.downloadSize.padStart(maxSize),
-      style.dim(scope.padEnd(maxScope)),
-    ].join("  ");
-
-    lines.push(row);
-  }
+      item.isVersionBump && !item.isRebuild ? style.green(available) : style.yellow(available),
+      item.downloadSize,
+      style.dim(`${item.origin} (${item.installation})`),
+    ] as const;
+  });
 
   // Summary statistics
   const summaryParts: string[] = [];
@@ -150,9 +89,29 @@ export function formatComparisonTable(items: UpdateComparison[], options: CliOpt
     summaryParts.push(`${unverifiedCount} update${unverifiedCount > 1 ? "s" : ""} with unverified versions`);
   }
 
-  const summary = `Found ${items.length} update${items.length > 1 ? "s" : ""} (${summaryParts.join(", ")}).`;
-  lines.push("");
-  lines.push(style.bold(summary));
+  const summary = style.bold(`Found ${items.length} update${items.length > 1 ? "s" : ""} (${summaryParts.join(", ")}).`);
+  const headers = ["APPLICATION", "APPLICATION ID", "CURRENT", "", "AVAILABLE", "SIZE", "REMOTE / SCOPE"];
+  const widths = headers.map((header, index) => rows.reduce(
+    (width, row) => Math.max(width, Bun.stringWidth(row[index] ?? "")),
+    Bun.stringWidth(header),
+  ));
+  const gap = "  ";
+  const tableWidth = widths.reduce((total, width) => total + width, 0) + gap.length * (headers.length - 1);
 
-  return lines.join("\n");
+  if (columns && tableWidth > columns) {
+    const entries = rows.map(([name, id, current, arrow, available, size, scope]) => [
+      style.bold(name),
+      `  ${current} ${arrow} ${available}`,
+      `  ${id}`,
+      `  ${size} · ${scope}`,
+    ].join("\n"));
+    return wrap([...entries, summary].join("\n\n"));
+  }
+
+  const formatRow = (cells: readonly string[]) => cells.map((cell, index) => {
+    const padding = " ".repeat((widths[index] ?? 0) - Bun.stringWidth(cell));
+    return index === 5 ? padding + cell : cell + padding;
+  }).join(gap).trimEnd();
+  const divider = widths.map((width, index) => (headers[index] ? "-" : " ").repeat(width)).join(gap);
+  return [style.bold(formatRow(headers)), style.dim(divider), ...rows.map(formatRow), "", wrap(summary)].join("\n");
 }
