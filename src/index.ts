@@ -24,7 +24,19 @@ cli.example("flatpak-update-list --user");
 cli.example("flatpak-update-list --all --json");
 
 async function main() {
-  const parsed = cli.parse(process.argv);
+  let parsed: ReturnType<typeof cli.parse>;
+  try {
+    parsed = cli.parse(process.argv);
+    cli.globalCommand.checkUnknownOptions();
+    cli.globalCommand.checkUnusedArgs();
+    if (parsed.options["--"].length > 0) {
+      throw new Error(`Unexpected arguments after --: ${parsed.options["--"].join(" ")}`);
+    }
+  } catch (error) {
+    console.error(`error: ${error instanceof Error ? error.message : String(error)}. Use --help for usage.`);
+    process.exitCode = 2;
+    return;
+  }
 
   if (parsed.options.help || parsed.options.version) {
     return;
