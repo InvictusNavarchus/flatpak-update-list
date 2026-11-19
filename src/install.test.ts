@@ -59,13 +59,22 @@ beforeEach(() => {
   mkdirSync(join(checkout, "src"), { recursive: true });
   mkdirSync(tools);
   symlinkSync(process.execPath, join(tools, "bun"));
-  // Any attempt to query Flatpak during installation fails the smoke check.
-  writeFileSync(join(tools, "flatpak"), "#!/bin/bash\nexit 99\n", {
+  // Only help is available during installation. Queries would fail the smoke check.
+  writeFileSync(join(tools, "flatpak"), `#!/bin/bash
+if [[ $# == 2 && ( "$1" == list || "$1" == remote-ls ) && "$2" == --help ]]; then
+  if [[ "$FLATPAK_WITHOUT_JSON" != "$1" ]]; then
+    printf '  -j, --json    Show output in JSON format\\n'
+  fi
+  exit 0
+fi
+exit 99
+`, {
     mode: 0o755,
   });
   environment = {
     ...process.env,
     PATH: `${tools}:/usr/bin:/bin`,
+    FLATPAK_WITHOUT_JSON: undefined,
     BUN_INSTALL: join(directory, "bun"),
     BUN_INSTALL_GLOBAL_DIR: join(directory, "global"),
     BUN_INSTALL_BIN: join(directory, "command bin"),
@@ -122,6 +131,16 @@ for (const prerequisite of ["bun", "flatpak"]) {
     expect(existsSync(join(directory, "global"))).toBe(false);
   });
 }
+
+test.each(["list", "remote-ls"])("missing Flatpak %s JSON support fails before installation", (subcommand) => {
+  environment.FLATPAK_WITHOUT_JSON = subcommand;
+  const result = install();
+  expect(result.code).not.toBe(0);
+  expect(result.output).toContain(`requires JSON output in 'flatpak ${subcommand}'`);
+  expect(result.output).toContain("Update Flatpak");
+  expect(existsSync(join(directory, "global"))).toBe(false);
+  expect(existsSync(join(checkout, "node_modules"))).toBe(false);
+});
 
 test("installs in Bun's configured bin, exposes edits, and unlinks without deleting source", () => {
   const lockfile = readFileSync(join(checkout, "bun.lock"), "utf8");

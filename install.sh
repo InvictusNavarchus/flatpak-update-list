@@ -6,7 +6,7 @@ usage() {
 Usage: bash install.sh [--help]
 
 Install or update this checkout's flatpak-update-list command using Bun.
-Requires Bash, Bun, and Flatpak on PATH (Linux).
+Requires Bash, Bun, and Flatpak with JSON output support on PATH (Linux).
 
 Installs locked dependencies with bun install --frozen-lockfile, then uses
 bun link to register the command in Bun's configured global bin directory.
@@ -40,6 +40,11 @@ fi
 
 command -v bun >/dev/null 2>&1 || die "Bun is required. Install it from https://bun.com first."
 command -v flatpak >/dev/null 2>&1 || die "Flatpak is required. Install it with your Linux distribution's package manager."
+for subcommand in list remote-ls; do
+  flatpak_help="$(LC_ALL=C flatpak "$subcommand" --help)" || die "Could not check Flatpak's $subcommand command. Verify that Flatpak is working."
+  [[ "$flatpak_help" == *--json* ]] ||
+    die "This tool requires JSON output in 'flatpak $subcommand'. Update Flatpak to a release with --json support (available in stable Flatpak 1.18 or later)."
+done
 
 checkout_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd -- "$checkout_dir"

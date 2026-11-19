@@ -14,9 +14,11 @@ A lightweight, zero-bloat CLI utility written in TypeScript and executed via [Bu
 
 ## Installation & Requirements
 
-Requires Linux, Bash, [Bun](https://bun.com), and Flatpak on `PATH`. The installer
-is verified with Bun 1.4.4. Git is needed to clone and fetch updates; Bun and
-Flatpak are needed at runtime. No compilation or standalone executable is provided.
+Requires Linux, Bash, [Bun](https://bun.com), and Flatpak on `PATH`. Both `flatpak list`
+and `flatpak remote-ls` must support `--json`, available in stable Flatpak 1.18 or
+later. The installer checks this before installing dependencies. It is verified
+with Bun 1.4.4. Git is needed to clone and fetch updates. Bun and Flatpak are needed
+at runtime. No compilation or standalone executable is provided.
 
 ```bash
 # Clone the repository
