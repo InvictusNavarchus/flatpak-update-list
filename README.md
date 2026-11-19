@@ -5,7 +5,7 @@ A lightweight, zero-bloat CLI utility written in TypeScript and executed via [Bu
 ## Features
 
 - **Side-by-Side Version Comparison**: Displays `CURRENT → AVAILABLE` versions in a clean, terminal-aligned table.
-- **Fresh Version Metadata**: Refreshes AppStream for the selected user/system installations before querying online updates. This updates catalog metadata only; it does not install application or runtime updates. Refresh failures stop the check instead of silently using stale versions.
+- **Fresh Version Metadata**: Refreshes AppStream for the selected user/system installations before querying online updates. The refresh updates catalog metadata only. A failed refresh or a diagnostic from Flatpak on stderr stops the check and suggests an explicit `--cached` retry.
 - **Cautious Rebuild Detection**: Different reported versions indicate a version change. Equal versions with different commits are labeled **possible rebuilds**, since catalog metadata cannot prove that the application version stayed unchanged.
 - **Native JSON Queries**: Fetches installed applications concurrently with the remote update check via native JSON flags (`-j`), avoiding brittle text parsing.
 - **Filtering Options**: Easily filter by `--user` or `--system` installations, or check `--all` (including runtimes).

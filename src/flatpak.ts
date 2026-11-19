@@ -1,6 +1,6 @@
 import type { CliOptions, FlatpakInstalledItem, FlatpakRemoteItem, UpdateComparison } from "./types.ts";
 
-async function runFlatpak(args: string[]): Promise<string> {
+async function runFlatpak(args: string[]) {
   const proc = Bun.spawn(["flatpak", ...args], {
     stdout: "pipe",
     stderr: "pipe",
@@ -17,11 +17,12 @@ async function runFlatpak(args: string[]): Promise<string> {
     throw new Error(`Flatpak command failed ("flatpak ${args.join(" ")}"): ${errorMsg}`);
   }
 
-  return stdout;
+  return { stdout, stderr: stderr.trim() };
 }
 
 async function runFlatpakJson<T>(args: string[]): Promise<T[]> {
-  const trimmed = (await runFlatpak(args)).trim();
+  const { stdout } = await runFlatpak(args);
+  const trimmed = stdout.trim();
   if (!trimmed) {
     return [];
   }
@@ -62,7 +63,14 @@ export async function fetchAvailableUpdates(
     const scopeNames = scopes.map((scope) => scope.replace(/^--/, "")).join(", ");
     onProgress?.(`Refreshing AppStream metadata (${scopeNames})...`);
     for (const scope of scopes) {
-      await runFlatpak(["update", "--appstream", scope]);
+      try {
+        const { stderr } = await runFlatpak(["update", "--appstream", scope]);
+        // Flatpak can report per-remote refresh errors on stderr and still exit successfully.
+        if (stderr) throw new Error(stderr);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Could not confirm the ${scope.slice(2)} AppStream refresh. ${message}\nRetry with --cached to check local metadata.`);
+      }
     }
   }
 

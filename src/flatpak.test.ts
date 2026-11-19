@@ -34,6 +34,9 @@ if (args[0] === "update") {
     console.error("AppStream refresh failed");
     process.exit(1);
   }
+  if (existsSync(directory + "/refresh-stderr")) {
+    console.error("AppStream refresh failed for flathub");
+  }
   console.log("AppStream metadata updated");
 } else if (args[0] === "list") {
   console.log(readFileSync(directory + "/installed", "utf8"));
@@ -112,6 +115,14 @@ test("cached checks skip refresh and never claim equal stale versions are rebuil
 test("refresh failure prevents the remote comparison instead of accepting stale metadata", async () => {
   writeFileSync(join(directory, "fail-refresh"), "");
   await expect(getUpdateComparisons({})).rejects.toThrow("AppStream refresh failed");
+  expect(commands().some(args => args[0] === "remote-ls")).toBe(false);
+});
+
+test("refresh diagnostics with a zero exit code prevent a fresh comparison", async () => {
+  writeFileSync(join(directory, "refresh-stderr"), "");
+  await expect(getUpdateComparisons({ user: true })).rejects.toThrow(
+    /user AppStream refresh.*failed for flathub\nRetry with --cached/
+  );
   expect(commands().some(args => args[0] === "remote-ls")).toBe(false);
 });
 
