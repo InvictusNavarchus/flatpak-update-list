@@ -8,7 +8,7 @@ A lightweight, zero-bloat CLI utility written in TypeScript and executed via [Bu
 - **Fresh Version Metadata**: Refreshes AppStream for the selected user/system installations before querying online updates. The refresh updates catalog metadata only. A failed refresh or a diagnostic from Flatpak on stderr stops the check and suggests an explicit `--cached` retry.
 - **Cautious Rebuild Detection**: Different reported versions indicate a version change. Equal versions with different commits are labeled **possible rebuilds**, since catalog metadata cannot prove that the application version stayed unchanged.
 - **Native JSON Queries**: Fetches installed applications concurrently with the remote update check via native JSON flags (`-j`), avoiding brittle text parsing.
-- **Filtering Options**: Easily filter by `--user` or `--system` installations, or check `--all` (including runtimes).
+- **Filtering Options**: Checks the user and default system installations separately, so each update appears under the installation that reported it. Use `--user` or `--system` to narrow the check, or `--all` to include runtimes.
 - **Offline / Stale Cache Mode**: `--cached` skips AppStream refresh and queries local OSTree caches without hitting remotes. Available versions are marked `(cached)`; equal cached versions are unverified, not classified as rebuilds.
 - **Machine-Readable**: `--json` flag prints structured JSON for scripting or piping to tools like `jq`.
 

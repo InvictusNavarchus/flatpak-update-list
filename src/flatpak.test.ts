@@ -41,9 +41,10 @@ if (args[0] === "update") {
 } else if (args[0] === "list") {
   console.log(readFileSync(directory + "/installed", "utf8"));
 } else if (args[0] === "remote-ls") {
-  const commands = readFileSync(log, "utf8").trim().split("\\n").map(JSON.parse);
-  const refreshed = commands.some(command => command[0] === "update");
-  console.log(readFileSync(directory + (refreshed ? "/fresh" : "/cached"), "utf8"));
+  const scope = args.includes("--user") ? "user" : "system";
+  const mode = args.includes("--cached") ? "cached" : "fresh";
+  const path = directory + "/" + mode + "-" + scope;
+  console.log(existsSync(path) ? readFileSync(path, "utf8") : "[]");
 } else {
   process.exit(2);
 }
@@ -65,8 +66,8 @@ afterEach(() => {
 function setVersions(availableVersion?: string, currentVersion: string | undefined = "26.10.1") {
   writeFileSync(join(directory, "installed"), JSON.stringify([{ ...installed, version: currentVersion }]));
   const remote = { ...installed, commit: "326cfe625f8d", download_size: "29.6 MB" };
-  writeFileSync(join(directory, "fresh"), JSON.stringify([{ ...remote, version: availableVersion }]));
-  writeFileSync(join(directory, "cached"), JSON.stringify([remote]));
+  writeFileSync(join(directory, "fresh-system"), JSON.stringify([{ ...remote, version: availableVersion }]));
+  writeFileSync(join(directory, "cached-system"), JSON.stringify([remote]));
 }
 
 function commands(): string[][] {
@@ -98,6 +99,28 @@ for (const scope of ["user", "system"] as const) {
     expect(commands().find(args => args[0] === "remote-ls")).toContain(`--${scope}`);
   });
 }
+
+test("attributes an update only to the installation and remote that reported it", async () => {
+  writeFileSync(join(directory, "installed"), JSON.stringify([
+    installed,
+    { ...installed, installation: "user", version: "26.10.13", active_commit: "326cfe625f8d" },
+    { ...installed, origin: "another-remote", version: "26.10.2" },
+  ]));
+
+  const results = await getUpdateComparisons({});
+
+  expect(results).toHaveLength(1);
+  expect(results[0]).toMatchObject({
+    installation: "system",
+    origin: "flathub",
+    currentVersion: "26.10.1",
+    availableVersion: "26.10.13",
+  });
+  expect(commands().filter(args => args[0] === "remote-ls").map(args => args.at(-1)).sort()).toEqual([
+    "--system",
+    "--user",
+  ]);
+});
 
 test("cached checks skip refresh and never claim equal stale versions are rebuilds", async () => {
   const results = await getUpdateComparisons({ cached: true });
@@ -152,6 +175,7 @@ test("missing installed versions are unverified", async () => {
 test("unmatched installed refs do not imply a version upgrade", async () => {
   writeFileSync(join(directory, "installed"), "[]");
   const results = await getUpdateComparisons({});
+  expect(results[0]?.installation).toBe("system");
   expect(results[0]?.isRebuild).toBe(false);
   expect(results[0]?.isVersionBump).toBe(false);
   expect(formatComparisonTable(results)).toContain("version unverified");
