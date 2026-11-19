@@ -1,4 +1,4 @@
-import type { UpdateComparison } from "./types.ts";
+import type { CliOptions, UpdateComparison } from "./types.ts";
 
 const isColorSupported = Boolean(
   process.stdout.isTTY &&
@@ -35,9 +35,14 @@ function formatAvailableRaw(item: UpdateComparison): string {
   return version;
 }
 
-export function formatComparisonTable(items: UpdateComparison[]): string {
+export function formatComparisonTable(items: UpdateComparison[], options: CliOptions = {}): string {
   if (items.length === 0) {
-    return style.green("✓ All Flatpak packages are up to date.");
+    const kind = options.all ? "package" : "application";
+    const scope = options.user && !options.system ? "the user installation"
+      : options.system && !options.user ? "the default system installation"
+      : "the user and default system installations";
+    const source = options.cached ? " in the local cache" : "";
+    return style.green(`No pending ${kind} updates found${source} for ${scope}.`);
   }
 
   // Pre-calculate raw text lengths for perfect column alignment

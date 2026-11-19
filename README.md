@@ -135,6 +135,8 @@ bun run start --all --json
 
 ### Version information
 
+When no updates are found, the text output names the installations checked and identifies cached results. JSON output in this case is an empty array.
+
 Flatpak tracks updates by commit, while displayed versions come from AppStream catalogs. Previously, this utility could show a current remote commit alongside an old catalog version and incorrectly label a new release as a rebuild. Online checks now refresh catalogs first. The `--user` and `--system` filters also limit the refresh; by default both installations are refreshed.
 
 JSON comparisons include `versionMetadataCached` to identify potentially stale version metadata. `isRebuild` is a heuristic for a possible rebuild with equal known versions after refresh; it is always false in cached mode. Missing versions or an unmatched installation are unverified rather than assumed to be version upgrades. `isVersionBump` means the two reported version strings differ, not that their ordering has been verified.

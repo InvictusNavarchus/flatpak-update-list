@@ -69,7 +69,7 @@ async function main() {
       return;
     }
 
-    console.log(formatComparisonTable(comparisons));
+    console.log(formatComparisonTable(comparisons, options));
   } catch (error) {
     const prefix = isStderrColor ? "\x1b[31merror:\x1b[0m" : "error:";
     console.error(`${prefix} ${error instanceof Error ? error.message : String(error)}`);
